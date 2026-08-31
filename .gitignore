@@ -1,0 +1,22 @@
+# Inventari locali e variabili riservate
+inventory.ini
+inventory.local.ini
+group_vars/**/vault.yml
+host_vars/**/vault.yml
+vault.yml
+*.vault.yml
+
+# Chiavi private e certificati locali
+*.key
+*.pem
+id_rsa
+id_ed25519
+
+# Configurazioni che consentono accesso al cluster
+kubeconfig
+*.kubeconfig
+admin.conf
+
+# Password Ansible Vault e file temporanei
+.vault-password*
+*.retry
