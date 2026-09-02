@@ -57,11 +57,10 @@ metadata:
   name: redis
   namespace: demo
 spec:
+  type: LoadBalancer
   selector:
     app: redis
   ports:
     - name: redis
       port: 6379
-      targetPort: redis
-      nodePort: 30379
-  type: NodePort
+      targetPort: 6379

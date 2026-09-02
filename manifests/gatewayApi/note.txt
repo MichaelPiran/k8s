@@ -1,0 +1,13 @@
+gateway-api 
+
+gateway class
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
+
+gateway
+kubectl apply -f gateway.yml
+
+gateway controller: Envoy gateway
+helm install eg oci://docker.io/envoyproxy/gateway-helm --version v1.9.1 -n envoy-gateway-system --create-namespace
+
+
+
