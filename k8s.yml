@@ -168,11 +168,114 @@
       register: flannel_apply
       changed_when: "'created' in flannel_apply.stdout or 'configured' in flannel_apply.stdout"
 
-    # - name: Copy Kubernetes manifests to the control plane
-    #   ansible.builtin.copy:
-    #     src: "{{ playbook_dir }}/manifests/"
-    #     dest: /opt/k8s-manifests/
-    #     mode: "0644"
+    - name: Copy Kubernetes manifests to the control plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/manifests/"
+        dest: /opt/k8s-manifests/
+        mode: "0644"
+
+    - name: Install OpenEBS operator and local PV provisioner
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - -f
+          - /opt/k8s-manifests/openebs/openebs-operator.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: openebs_apply
+      changed_when: "'created' in openebs_apply.stdout or 'configured' in openebs_apply.stdout"
+
+    - name: Wait for OpenEBS local PV provisioner
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - openebs
+          - rollout
+          - status
+          - deployment/openebs-localpv-provisioner
+          - --timeout=120s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Install MetalLB CRDs and components
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - -f
+          - /opt/k8s-manifests/metallb/metallb-native.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: metallb_apply
+      changed_when: "'created' in metallb_apply.stdout or 'configured' in metallb_apply.stdout"
+
+    - name: Wait for MetalLB controller
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - metallb-system
+          - rollout
+          - status
+          - deployment/controller
+          - --timeout=120s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Wait for MetalLB speakers
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - metallb-system
+          - rollout
+          - status
+          - daemonset/speaker
+          - --timeout=120s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Apply MetalLB network configuration
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - -f
+          - /opt/k8s-manifests/metallb/metallb-config.yml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: metallb_config_apply
+      changed_when: "'created' in metallb_config_apply.stdout or 'configured' in metallb_config_apply.stdout"
+
+    - name: Install Gateway API CRDs
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --server-side
+          - -f
+          - /opt/k8s-manifests/gatewayApi/gatewayApi.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: gateway_api_apply
+      changed_when: "'created' in gateway_api_apply.stdout or 'configured' in gateway_api_apply.stdout"
+
+    - name: Apply Gateway API configuration
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - -f
+          - /opt/k8s-manifests/gatewayApi/gateway-config.yml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: gateway_config_apply
+      changed_when: "'created' in gateway_config_apply.stdout or 'configured' in gateway_config_apply.stdout"
 
     # - name: Create application namespace
     #   ansible.builtin.command:
@@ -185,83 +288,6 @@
     #     KUBECONFIG: /etc/kubernetes/admin.conf
     #   register: namespace_apply
     #   changed_when: "'created' in namespace_apply.stdout or 'configured' in namespace_apply.stdout"
-
-    # - name: Install MetalLB CRDs and components
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - apply
-    #       - -f
-    #       - /opt/k8s-manifests/metallb/metallb-native.yaml
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   register: metallb_apply
-    #   changed_when: "'created' in metallb_apply.stdout or 'configured' in metallb_apply.stdout"
-
-    # - name: Wait for MetalLB controller
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - -n
-    #       - metallb-system
-    #       - rollout
-    #       - status
-    #       - deployment/controller
-    #       - --timeout=120s
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   changed_when: false
-
-    # - name: Wait for MetalLB speakers
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - -n
-    #       - metallb-system
-    #       - rollout
-    #       - status
-    #       - daemonset/speaker
-    #       - --timeout=120s
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   changed_when: false
-
-    # - name: Apply MetalLB network configuration
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - apply
-    #       - -f
-    #       - /opt/k8s-manifests/metallb/metallb-config.yml
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   register: metallb_config_apply
-    #   changed_when: "'created' in metallb_config_apply.stdout or 'configured' in metallb_config_apply.stdout"
-
-    # - name: Install Gateway API CRDs
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - apply
-    #       - --server-side
-    #       - -f
-    #       - /opt/k8s-manifests/gatewayApi/gatewayApi.yaml
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   register: gateway_api_apply
-    #   changed_when: "'created' in gateway_api_apply.stdout or 'configured' in gateway_api_apply.stdout"
-
-    # - name: Apply Gateway API configuration
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - apply
-    #       - -f
-    #       - /opt/k8s-manifests/gatewayApi/gateway-config.yml
-    #   environment:
-    #     KUBECONFIG: /etc/kubernetes/admin.conf
-    #   register: gateway_config_apply
-    #   changed_when: "'created' in gateway_config_apply.stdout or 'configured' in gateway_config_apply.stdout"
 
     # - name: Deploy demo application
     #   ansible.builtin.command:
